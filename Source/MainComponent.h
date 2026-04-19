@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 
+#include "DrumNotesView.h"
 #include "DrumSynth.h"
 #include "MidiPlayer.h"
 #include "PitchedSynth.h"
@@ -23,11 +24,8 @@ public:
 private:
     void chooseAndLoadMidi();
     void loadMidiFile (const juce::File& file);
-    void populateEventLog (const juce::MidiFile& file);
     void updateTransportUI();
     void timerCallback() override;
-
-    static juce::String describeDrumNote (int noteNumber);
 
     juce::TextButton loadButton       { "Load MIDI file..." };
     juce::TextButton playButton       { "Play" };
@@ -40,13 +38,13 @@ private:
     juce::Label      melodyVolumeLabel;
     juce::Label      statusLabel;
     juce::Label      positionLabel;
-    juce::TextEditor eventLog;
 
     std::unique_ptr<juce::FileChooser> chooser;
 
-    DrumSynth    drumSynth;
-    PitchedSynth pitchedSynth;
-    MidiPlayer   player;
+    DrumSynth     drumSynth;
+    PitchedSynth  pitchedSynth;
+    MidiPlayer    player;
+    DrumNotesView notesView { player };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

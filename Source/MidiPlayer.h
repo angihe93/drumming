@@ -33,6 +33,11 @@ public:
     // channels 1-9, 11-16 is added to `pitchedOut` at its sample-accurate offset.
     void processBlock (int numSamples, DrumSynth& drums, juce::MidiBuffer& pitchedOut);
 
+    // UI thread. Fills `out` with drum events whose timeSec falls in [t0, t1).
+    // `out` is cleared first, then appended to.
+    struct DrumEvent { double timeSec; int note; float velocity; };
+    void getDrumEventsInRange (double t0, double t1, std::vector<DrumEvent>& out) const;
+
 private:
     struct Event
     {
@@ -53,6 +58,7 @@ private:
     double      playheadSeconds { 0.0 };
     std::size_t nextEventIndex  { 0 };
 
-    juce::SpinLock     loadLock;
-    std::vector<Event> events;
+    mutable juce::SpinLock loadLock;
+    std::vector<Event>     events;
+    std::vector<DrumEvent> drumEvents; // sorted by timeSec, drum channel note-ons only
 };
