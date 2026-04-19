@@ -29,6 +29,8 @@ target_sources(DrumCoach PRIVATE
     Source/MainComponent.h
     Source/DrumSynth.cpp
     Source/DrumSynth.h
+    Source/DrumInput.cpp
+    Source/DrumInput.h
     Source/MidiPlayer.cpp
     Source/MidiPlayer.h
     Source/PitchedSynth.cpp
