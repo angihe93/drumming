@@ -29,6 +29,22 @@ MainComponent::MainComponent()
         updateTransportUI();
     };
 
+    addAndMakeVisible (seekBackButton);
+    seekBackButton.onClick = [this] { seekTo (player.getPositionSeconds() - 10.0); };
+
+    addAndMakeVisible (seekForwardButton);
+    seekForwardButton.onClick = [this] { seekTo (player.getPositionSeconds() + 10.0); };
+
+    addAndMakeVisible (seekSlider);
+    seekSlider.setRange (0.0, 1.0, 0.0);
+    seekSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    seekSlider.onDragStart = [this] { userDraggingSeek = true; };
+    seekSlider.onDragEnd   = [this]
+    {
+        userDraggingSeek = false;
+        seekTo (seekSlider.getValue());
+    };
+
     tempoLabel.setText ("Tempo", juce::dontSendNotification);
     addAndMakeVisible (tempoLabel);
 
@@ -63,6 +79,19 @@ MainComponent::MainComponent()
         pitchedSynth.setMasterGain ((float) melodyVolumeSlider.getValue());
     };
 
+    lookAheadLabel.setText ("Lookahead", juce::dontSendNotification);
+    addAndMakeVisible (lookAheadLabel);
+
+    addAndMakeVisible (lookAheadSlider);
+    lookAheadSlider.setRange (0.75, 5.0, 0.05);
+    lookAheadSlider.setValue (2.5, juce::dontSendNotification);
+    lookAheadSlider.setTextValueSuffix (" s");
+    lookAheadSlider.setNumDecimalPlacesToDisplay (2);
+    lookAheadSlider.onValueChange = [this]
+    {
+        notesView.setLookAheadSeconds (lookAheadSlider.getValue());
+    };
+
     addAndMakeVisible (statusLabel);
     statusLabel.setText ("No file loaded.", juce::dontSendNotification);
 
@@ -70,13 +99,9 @@ MainComponent::MainComponent()
     positionLabel.setText ("0.00 / 0.00 s", juce::dontSendNotification);
     positionLabel.setJustificationType (juce::Justification::centredRight);
 
-    addAndMakeVisible (eventLog);
-    eventLog.setMultiLine (true);
-    eventLog.setReadOnly (true);
-    eventLog.setScrollbarsShown (true);
-    eventLog.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
+    addAndMakeVisible (notesView);
 
-    setSize (960, 620);
+    setSize (960, 640);
     setAudioChannels (0, 2);
     startTimerHz (30);
 }
@@ -106,7 +131,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
     juce::MidiBuffer pitchedEvents;
     player.processBlock (info.numSamples, drumSynth, pitchedEvents);
 
-    drumSynth.render    (*info.buffer, info.startSample, info.numSamples);
+    drumSynth.render (*info.buffer, info.startSample, info.numSamples);
     pitchedSynth.processBlock (*info.buffer, pitchedEvents, info.startSample, info.numSamples);
 }
 
@@ -125,11 +150,17 @@ void MainComponent::resized()
     playButton.setBounds (topRow.removeFromLeft (80));
     topRow.removeFromLeft (4);
     stopButton.setBounds (topRow.removeFromLeft (80));
+    topRow.removeFromLeft (8);
+    seekBackButton.setBounds (topRow.removeFromLeft (60));
+    topRow.removeFromLeft (4);
+    seekForwardButton.setBounds (topRow.removeFromLeft (60));
     topRow.removeFromLeft (12);
     positionLabel.setBounds (topRow.removeFromRight (160));
     statusLabel.setBounds (topRow);
 
-    area.removeFromTop (8);
+    area.removeFromTop (6);
+    seekSlider.setBounds (area.removeFromTop (22));
+    area.removeFromTop (6);
 
     auto makeSliderRow = [&] (juce::Label& label, juce::Slider& slider)
     {
@@ -142,9 +173,10 @@ void MainComponent::resized()
     makeSliderRow (tempoLabel,        tempoSlider);
     makeSliderRow (drumsVolumeLabel,  drumsVolumeSlider);
     makeSliderRow (melodyVolumeLabel, melodyVolumeSlider);
+    makeSliderRow (lookAheadLabel,    lookAheadSlider);
 
-    area.removeFromTop (4);
-    eventLog.setBounds (area);
+    area.removeFromTop (6);
+    notesView.setBounds (area);
 }
 
 void MainComponent::chooseAndLoadMidi()
@@ -182,8 +214,8 @@ void MainComponent::loadMidiFile (const juce::File& file)
     drumSynth.reset();
     pitchedSynth.reset();
     player.loadMidi (midi);
-
-    populateEventLog (midi);
+    seekSlider.setRange (0.0, juce::jmax (0.001, player.getLengthSeconds()), 0.0);
+    seekSlider.setValue (0.0, juce::dontSendNotification);
     updateTransportUI();
 
     statusLabel.setText (
@@ -192,40 +224,6 @@ void MainComponent::loadMidiFile (const juce::File& file)
                                  player.getNumDrumEvents(),
                                  player.getNumPitchedEvents()),
         juce::dontSendNotification);
-}
-
-void MainComponent::populateEventLog (const juce::MidiFile& sourceFile)
-{
-    juce::MidiFile midi (sourceFile);
-    midi.convertTimestampTicksToSeconds();
-
-    juce::StringArray lines;
-
-    for (int t = 0; t < midi.getNumTracks(); ++t)
-    {
-        const auto* track = midi.getTrack (t);
-        if (track == nullptr) continue;
-
-        for (int i = 0; i < track->getNumEvents() && lines.size() < 200; ++i)
-        {
-            const auto& msg = track->getEventPointer (i)->message;
-            if (! msg.isNoteOn()) continue;
-            if (msg.getChannel() != 10) continue;
-
-            lines.add (juce::String::formatted (
-                "t=%7.3fs  track=%d  note=%3d (%s)  vel=%3d",
-                msg.getTimeStamp(),
-                t,
-                msg.getNoteNumber(),
-                describeDrumNote (msg.getNoteNumber()).toRawUTF8(),
-                msg.getVelocity()));
-        }
-    }
-
-    if (lines.isEmpty())
-        eventLog.setText ("No drum (channel 10) note-on events found.");
-    else
-        eventLog.setText (lines.joinIntoString ("\n"));
 }
 
 void MainComponent::updateTransportUI()
@@ -239,35 +237,15 @@ void MainComponent::timerCallback()
     const double len = player.getLengthSeconds();
     positionLabel.setText (juce::String::formatted ("%.2f / %.2f s", pos, len),
                            juce::dontSendNotification);
+    if (! userDraggingSeek)
+        seekSlider.setValue (pos, juce::dontSendNotification);
     updateTransportUI();
 }
 
-juce::String MainComponent::describeDrumNote (int n)
+void MainComponent::seekTo (double timeSec)
 {
-    switch (n)
-    {
-        case 35: return "Acoustic Bass Drum";
-        case 36: return "Kick";
-        case 37: return "Side Stick";
-        case 38: return "Snare";
-        case 39: return "Hand Clap";
-        case 40: return "Electric Snare";
-        case 41: return "Low Floor Tom";
-        case 42: return "Hi-Hat Closed";
-        case 43: return "High Floor Tom";
-        case 44: return "Hi-Hat Pedal";
-        case 45: return "Low Tom";
-        case 46: return "Hi-Hat Open";
-        case 47: return "Low-Mid Tom";
-        case 48: return "Hi-Mid Tom";
-        case 49: return "Crash 1";
-        case 50: return "High Tom";
-        case 51: return "Ride 1";
-        case 52: return "China";
-        case 53: return "Ride Bell";
-        case 55: return "Splash";
-        case 57: return "Crash 2";
-        case 59: return "Ride 2";
-        default: return "?";
-    }
+    player.seek (timeSec);
+    drumSynth.reset();
+    pitchedSynth.reset();
+    seekSlider.setValue (player.getPositionSeconds(), juce::dontSendNotification);
 }

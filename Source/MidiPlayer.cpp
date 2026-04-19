@@ -12,6 +12,7 @@ void MidiPlayer::clear()
     playing.store (false);
     const juce::SpinLock::ScopedLockType sl (loadLock);
     events.clear();
+    drumEvents.clear();
     playheadSeconds = 0.0;
     nextEventIndex  = 0;
     lengthSeconds.store (0.0);
@@ -25,9 +26,9 @@ void MidiPlayer::loadMidi (const juce::MidiFile& sourceFile)
     juce::MidiFile m (sourceFile);
     m.convertTimestampTicksToSeconds();
 
-    std::vector<Event> newEvents;
-    double maxT = 0.0;
-    int    drumCount    = 0;
+    std::vector<Event>     newEvents;
+    std::vector<DrumEvent> newDrumEvents;
+    double maxT         = 0.0;
     int    pitchedCount = 0;
 
     for (int t = 0; t < m.getNumTracks(); ++t)
@@ -46,27 +47,49 @@ void MidiPlayer::loadMidi (const juce::MidiFile& sourceFile)
 
             if (msg.isNoteOn())
             {
-                if (msg.getChannel() == 10) ++drumCount;
-                else                        ++pitchedCount;
+                if (msg.getChannel() == 10)
+                    newDrumEvents.push_back ({ ts, msg.getNoteNumber(), msg.getFloatVelocity() });
+                else
+                    ++pitchedCount;
             }
         }
     }
 
     std::sort (newEvents.begin(), newEvents.end(),
                [] (const Event& a, const Event& b) { return a.timeSec < b.timeSec; });
+    std::sort (newDrumEvents.begin(), newDrumEvents.end(),
+               [] (const DrumEvent& a, const DrumEvent& b) { return a.timeSec < b.timeSec; });
 
     playing.store (false);
     {
         const juce::SpinLock::ScopedLockType sl (loadLock);
         events          = std::move (newEvents);
+        drumEvents      = std::move (newDrumEvents);
         playheadSeconds = 0.0;
         nextEventIndex  = 0;
     }
 
     lengthSeconds.store (maxT + 2.0);
     displayPosition.store (0.0);
-    numDrumEvents.store (drumCount);
+    numDrumEvents.store ((int) drumEvents.size());
     numPitchedEvents.store (pitchedCount);
+}
+
+void MidiPlayer::getDrumEventsInRange (double t0, double t1,
+                                       std::vector<DrumEvent>& out) const
+{
+    out.clear();
+    if (t1 <= t0) return;
+
+    const juce::SpinLock::ScopedLockType sl (loadLock);
+    if (drumEvents.empty()) return;
+
+    const auto lo = std::lower_bound (drumEvents.begin(), drumEvents.end(), t0,
+                                      [] (const DrumEvent& e, double t) { return e.timeSec < t; });
+    const auto hi = std::lower_bound (lo, drumEvents.end(), t1,
+                                      [] (const DrumEvent& e, double t) { return e.timeSec < t; });
+
+    out.insert (out.end(), lo, hi);
 }
 
 void MidiPlayer::play()
@@ -99,6 +122,21 @@ void MidiPlayer::stop()
 void MidiPlayer::setTempoMultiplier (double m)
 {
     tempoMultiplier.store (juce::jlimit (0.1, 4.0, m));
+}
+
+void MidiPlayer::seek (double timeSec)
+{
+    const juce::SpinLock::ScopedLockType sl (loadLock);
+    const double len = lengthSeconds.load();
+    timeSec = juce::jlimit (0.0, len, timeSec);
+
+    playheadSeconds = timeSec;
+
+    const auto it = std::lower_bound (events.begin(), events.end(), timeSec,
+        [] (const Event& e, double t) { return e.timeSec < t; });
+    nextEventIndex = (std::size_t) std::distance (events.begin(), it);
+
+    displayPosition.store (timeSec);
 }
 
 void MidiPlayer::processBlock (int numSamples, DrumSynth& drums, juce::MidiBuffer& pitchedOut)

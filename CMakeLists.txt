@@ -33,6 +33,8 @@ target_sources(DrumCoach PRIVATE
     Source/MidiPlayer.h
     Source/PitchedSynth.cpp
     Source/PitchedSynth.h
+    Source/DrumNotesView.cpp
+    Source/DrumNotesView.h
 )
 
 target_compile_definitions(DrumCoach PRIVATE
