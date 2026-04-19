@@ -105,8 +105,20 @@ MainComponent::MainComponent()
         notesView.setLookAheadSeconds (lookAheadSlider.getValue());
     };
 
-    midiInputLabel.setText ("MIDI In", juce::dontSendNotification);
+    midiInputLabel.setText (juce::String::fromUTF8 ("MIDI In  \xe2\x93\x98"),
+                            juce::dontSendNotification);
     addAndMakeVisible (midiInputLabel);
+
+    const juce::String keyboardHelp =
+        "No drum pad? Click the notes area below to focus, then play with the keyboard:\n"
+        "  Space = Kick\n"
+        "  A = Closed hi-hat,   ; = Open hi-hat\n"
+        "  S = Snare\n"
+        "  D = Hi tom,   F = Mid tom,   J = Floor tom\n"
+        "  K = Ride,   L = Crash\n"
+        "Pick a MIDI device here to also play along with a drum pad.";
+    midiInputLabel.setTooltip (keyboardHelp);
+    midiInputCombo.setTooltip (keyboardHelp);
 
     addAndMakeVisible (midiInputCombo);
     midiInputCombo.onChange = [this]

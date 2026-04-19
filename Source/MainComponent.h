@@ -66,6 +66,7 @@ private:
     juce::Label      midiInputLabel;
     juce::Label      statusLabel;
     juce::Label      positionLabel;
+    juce::TooltipWindow tooltipWindow { this, 400 };
 
     std::unique_ptr<juce::FileChooser> chooser;
 
