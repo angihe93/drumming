@@ -63,6 +63,19 @@ MainComponent::MainComponent()
         pitchedSynth.setMasterGain ((float) melodyVolumeSlider.getValue());
     };
 
+    lookAheadLabel.setText ("Lookahead", juce::dontSendNotification);
+    addAndMakeVisible (lookAheadLabel);
+
+    addAndMakeVisible (lookAheadSlider);
+    lookAheadSlider.setRange (0.75, 5.0, 0.05);
+    lookAheadSlider.setValue (2.5, juce::dontSendNotification);
+    lookAheadSlider.setTextValueSuffix (" s");
+    lookAheadSlider.setNumDecimalPlacesToDisplay (2);
+    lookAheadSlider.onValueChange = [this]
+    {
+        notesView.setLookAheadSeconds (lookAheadSlider.getValue());
+    };
+
     addAndMakeVisible (statusLabel);
     statusLabel.setText ("No file loaded.", juce::dontSendNotification);
 
@@ -138,6 +151,7 @@ void MainComponent::resized()
     makeSliderRow (tempoLabel,        tempoSlider);
     makeSliderRow (drumsVolumeLabel,  drumsVolumeSlider);
     makeSliderRow (melodyVolumeLabel, melodyVolumeSlider);
+    makeSliderRow (lookAheadLabel,    lookAheadSlider);
 
     area.removeFromTop (6);
     notesView.setBounds (area);

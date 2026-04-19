@@ -25,7 +25,7 @@ void DrumNotesView::timerCallback()
     repaint();
 }
 
-// Ordered left-to-right roughly as a drummer sees their kit.
+// Ordered to match standard drum-tab layout: kick sits between the mounted toms.
 int DrumNotesView::noteToLane (int n)
 {
     switch (n)
@@ -33,8 +33,8 @@ int DrumNotesView::noteToLane (int n)
         case 42: case 44: case 46:          return 0; // Hi-Hat (closed / pedal / open)
         case 49: case 52: case 55: case 57: return 1; // Crash / China / Splash
         case 37: case 38: case 39: case 40: return 2; // Snare family + side-stick / clap
-        case 35: case 36:                   return 3; // Kick
-        case 50:                            return 4; // High Tom
+        case 50:                            return 3; // High Tom
+        case 35: case 36:                   return 4; // Kick
         case 47: case 48:                   return 5; // Mid Tom
         case 41: case 43: case 45:          return 6; // Floor / Low Tom
         case 51: case 53: case 59: case 56: return 7; // Ride / Ride Bell / Cowbell
@@ -49,8 +49,8 @@ const char* DrumNotesView::laneName (int lane)
         case 0: return "Hi-Hat";
         case 1: return "Crash";
         case 2: return "Snare";
-        case 3: return "Kick";
-        case 4: return "Tom 1";
+        case 3: return "Tom 1";
+        case 4: return "Kick";
         case 5: return "Tom 2";
         case 6: return "Floor";
         case 7: return "Ride";
@@ -62,14 +62,14 @@ juce::Colour DrumNotesView::laneColour (int lane)
 {
     switch (lane)
     {
-        case 0: return juce::Colour (0xffffd84d); // yellow
-        case 1: return juce::Colour (0xffff6b6b); // coral
-        case 2: return juce::Colour (0xfff06292); // pink
-        case 3: return juce::Colour (0xffffa726); // orange
-        case 4: return juce::Colour (0xff66bb6a); // green
-        case 5: return juce::Colour (0xff26c6da); // cyan
-        case 6: return juce::Colour (0xff42a5f5); // blue
-        case 7: return juce::Colour (0xffba68c8); // purple
+        case 0: return juce::Colour (0xffffd84d); // Hi-Hat   — yellow
+        case 1: return juce::Colour (0xffff6b6b); // Crash    — coral
+        case 2: return juce::Colour (0xfff06292); // Snare    — pink
+        case 3: return juce::Colour (0xff66bb6a); // Tom 1    — green
+        case 4: return juce::Colour (0xffffa726); // Kick     — orange
+        case 5: return juce::Colour (0xff26c6da); // Tom 2    — cyan
+        case 6: return juce::Colour (0xff42a5f5); // Floor    — blue
+        case 7: return juce::Colour (0xffba68c8); // Ride     — purple
         default: return juce::Colours::white;
     }
 }

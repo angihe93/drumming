@@ -36,6 +36,8 @@ private:
     juce::Label      drumsVolumeLabel;
     juce::Slider     melodyVolumeSlider;
     juce::Label      melodyVolumeLabel;
+    juce::Slider     lookAheadSlider;
+    juce::Label      lookAheadLabel;
     juce::Label      statusLabel;
     juce::Label      positionLabel;
 
