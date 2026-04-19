@@ -103,13 +103,6 @@ void DrumNotesView::paint (juce::Graphics& g)
         }
     }
 
-    // Top strip — direction hint
-    g.setColour (juce::Colours::darkgrey);
-    g.setFont (juce::Font (12.0f));
-    g.drawText ("notes fall   v",
-                juce::Rectangle<float> (0, 0, width, labelH),
-                juce::Justification::centred);
-
     // Falling notes
     const double now    = player.getPositionSeconds();
     const double startT = now - 0.15;              // brief tail so the hit registers visually

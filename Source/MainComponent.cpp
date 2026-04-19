@@ -111,7 +111,7 @@ MainComponent::MainComponent()
 
     rebuildKeyBindings();
 
-    keyBindingsHeader.setText ("Key bindings (click a value to edit — letter, digit, punctuation, or \"Space\"):",
+    keyBindingsHeader.setText ("Key bindings (click a value to edit - letter, digit, punctuation, or \"Space\"):",
                                juce::dontSendNotification);
     addAndMakeVisible (keyBindingsHeader);
 
@@ -161,7 +161,7 @@ MainComponent::MainComponent()
     refreshMidiDeviceList();
 
     addAndMakeVisible (statusLabel);
-    statusLabel.setText ("No file loaded. Keys: A S D F J K L ; Space", juce::dontSendNotification);
+    statusLabel.setText ("No file loaded.", juce::dontSendNotification);
 
     addAndMakeVisible (positionLabel);
     positionLabel.setText ("0.00 / 0.00 s", juce::dontSendNotification);
@@ -334,7 +334,7 @@ void MainComponent::loadMidiFile (const juce::File& file)
     updateTransportUI();
 
     statusLabel.setText (
-        juce::String::formatted ("Loaded: %s  —  %d drum note-ons, %d pitched note-ons",
+        juce::String::formatted ("Loaded: %s  -  %d drum note-ons, %d pitched note-ons",
                                  file.getFileName().toRawUTF8(),
                                  player.getNumDrumEvents(),
                                  player.getNumPitchedEvents()),
