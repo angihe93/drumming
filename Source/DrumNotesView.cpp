@@ -138,11 +138,21 @@ void DrumNotesView::paint (juce::Graphics& g)
             alpha = juce::jmax (0.0f, 1.0f + (float) dt * 6.0f);      // fade out past-hit
 
         auto col = laneColour (lane).withMultipliedAlpha (velScale * alpha);
-        g.setColour (col);
-        g.fillRoundedRectangle (rect, 5.0f);
 
-        g.setColour (juce::Colours::white.withAlpha (0.25f * alpha));
-        g.drawRoundedRectangle (rect, 5.0f, 1.0f);
+        const bool openHiHat = (lane == 0 && e.note == 46);
+        if (openHiHat)
+        {
+            g.setColour (col);
+            g.drawRoundedRectangle (rect.reduced (1.0f), 5.0f, 2.0f);
+        }
+        else
+        {
+            g.setColour (col);
+            g.fillRoundedRectangle (rect, 5.0f);
+
+            g.setColour (juce::Colours::white.withAlpha (0.25f * alpha));
+            g.drawRoundedRectangle (rect, 5.0f, 1.0f);
+        }
     }
 
     // Hit line
