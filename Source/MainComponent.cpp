@@ -5,70 +5,9 @@ MainComponent::MainComponent()
     addAndMakeVisible (loadButton);
     loadButton.onClick = [this] { chooseAndLoadMidi(); };
 
-    addAndMakeVisible (playButton);
-    playButton.onClick = [this]
-    {
-        if (player.getIsPlaying())
-        {
-            player.pause();
-            pitchedSynth.reset();
-        }
-        else
-        {
-            player.play();
-        }
-        updateTransportUI();
-    };
-
-    addAndMakeVisible (stopButton);
-    stopButton.onClick = [this]
-    {
-        player.stop();
-        drumSynth.reset();
-        pitchedSynth.reset();
-        updateTransportUI();
-    };
-
-    tempoLabel.setText ("Tempo", juce::dontSendNotification);
-    addAndMakeVisible (tempoLabel);
-
-    addAndMakeVisible (tempoSlider);
-    tempoSlider.setRange (0.25, 2.0, 0.01);
-    tempoSlider.setValue (1.0, juce::dontSendNotification);
-    tempoSlider.setTextValueSuffix ("x");
-    tempoSlider.setNumDecimalPlacesToDisplay (2);
-    tempoSlider.onValueChange = [this] { player.setTempoMultiplier (tempoSlider.getValue()); };
-
-    drumsVolumeLabel.setText ("Drums", juce::dontSendNotification);
-    addAndMakeVisible (drumsVolumeLabel);
-
-    addAndMakeVisible (drumsVolumeSlider);
-    drumsVolumeSlider.setRange (0.0, 1.5, 0.01);
-    drumsVolumeSlider.setValue (0.8, juce::dontSendNotification);
-    drumsVolumeSlider.setNumDecimalPlacesToDisplay (2);
-    drumsVolumeSlider.onValueChange = [this]
-    {
-        drumSynth.setMasterGain ((float) drumsVolumeSlider.getValue());
-    };
-
-    melodyVolumeLabel.setText ("Melody", juce::dontSendNotification);
-    addAndMakeVisible (melodyVolumeLabel);
-
-    addAndMakeVisible (melodyVolumeSlider);
-    melodyVolumeSlider.setRange (0.0, 1.5, 0.01);
-    melodyVolumeSlider.setValue (0.5, juce::dontSendNotification);
-    melodyVolumeSlider.setNumDecimalPlacesToDisplay (2);
-    melodyVolumeSlider.onValueChange = [this]
-    {
-        pitchedSynth.setMasterGain ((float) melodyVolumeSlider.getValue());
-    };
-
     addAndMakeVisible (statusLabel);
     statusLabel.setText ("No file loaded.", juce::dontSendNotification);
-
-    addAndMakeVisible (positionLabel);
-    positionLabel.setText ("0.00 / 0.00 s", juce::dontSendNotification);
-    positionLabel.setJustificationType (juce::Justification::centredRight);
+    statusLabel.setJustificationType (juce::Justification::centredLeft);
 
     addAndMakeVisible (eventLog);
     eventLog.setMultiLine (true);
@@ -76,38 +15,7 @@ MainComponent::MainComponent()
     eventLog.setScrollbarsShown (true);
     eventLog.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 13.0f, juce::Font::plain));
 
-    setSize (960, 620);
-    setAudioChannels (0, 2);
-    startTimerHz (30);
-}
-
-MainComponent::~MainComponent()
-{
-    shutdownAudio();
-}
-
-void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sr)
-{
-    drumSynth.prepare (sr);
-    pitchedSynth.prepare (sr, samplesPerBlockExpected);
-    player.prepare (sr);
-}
-
-void MainComponent::releaseResources()
-{
-    drumSynth.reset();
-    pitchedSynth.reset();
-}
-
-void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
-{
-    info.clearActiveBufferRegion();
-
-    juce::MidiBuffer pitchedEvents;
-    player.processBlock (info.numSamples, drumSynth, pitchedEvents);
-
-    drumSynth.render    (*info.buffer, info.startSample, info.numSamples);
-    pitchedSynth.processBlock (*info.buffer, pitchedEvents, info.startSample, info.numSamples);
+    setSize (900, 600);
 }
 
 void MainComponent::paint (juce::Graphics& g)
@@ -118,32 +26,11 @@ void MainComponent::paint (juce::Graphics& g)
 void MainComponent::resized()
 {
     auto area = getLocalBounds().reduced (12);
-
-    auto topRow = area.removeFromTop (32);
-    loadButton.setBounds (topRow.removeFromLeft (160));
-    topRow.removeFromLeft (8);
-    playButton.setBounds (topRow.removeFromLeft (80));
-    topRow.removeFromLeft (4);
-    stopButton.setBounds (topRow.removeFromLeft (80));
-    topRow.removeFromLeft (12);
-    positionLabel.setBounds (topRow.removeFromRight (160));
-    statusLabel.setBounds (topRow);
-
+    auto top  = area.removeFromTop (32);
+    loadButton.setBounds (top.removeFromLeft (180));
+    top.removeFromLeft (12);
+    statusLabel.setBounds (top);
     area.removeFromTop (8);
-
-    auto makeSliderRow = [&] (juce::Label& label, juce::Slider& slider)
-    {
-        auto row = area.removeFromTop (26);
-        label.setBounds (row.removeFromLeft (70));
-        slider.setBounds (row);
-        area.removeFromTop (4);
-    };
-
-    makeSliderRow (tempoLabel,        tempoSlider);
-    makeSliderRow (drumsVolumeLabel,  drumsVolumeSlider);
-    makeSliderRow (melodyVolumeLabel, melodyVolumeSlider);
-
-    area.removeFromTop (4);
     eventLog.setBounds (area);
 }
 
@@ -168,6 +55,7 @@ void MainComponent::chooseAndLoadMidi()
 void MainComponent::loadMidiFile (const juce::File& file)
 {
     juce::MidiFile midi;
+
     {
         juce::FileInputStream stream (file);
         if (! stream.openedOk() || ! midi.readFrom (stream))
@@ -178,68 +66,51 @@ void MainComponent::loadMidiFile (const juce::File& file)
         }
     }
 
-    player.stop();
-    drumSynth.reset();
-    pitchedSynth.reset();
-    player.loadMidi (midi);
-
-    populateEventLog (midi);
-    updateTransportUI();
-
-    statusLabel.setText (
-        juce::String::formatted ("Loaded: %s  —  %d drum note-ons, %d pitched note-ons",
-                                 file.getFileName().toRawUTF8(),
-                                 player.getNumDrumEvents(),
-                                 player.getNumPitchedEvents()),
-        juce::dontSendNotification);
-}
-
-void MainComponent::populateEventLog (const juce::MidiFile& sourceFile)
-{
-    juce::MidiFile midi (sourceFile);
+    // Convert tick-based timestamps to seconds using the file's tempo map.
     midi.convertTimestampTicksToSeconds();
 
     juce::StringArray lines;
+    int drumEventCount = 0;
 
     for (int t = 0; t < midi.getNumTracks(); ++t)
     {
         const auto* track = midi.getTrack (t);
         if (track == nullptr) continue;
 
-        for (int i = 0; i < track->getNumEvents() && lines.size() < 200; ++i)
+        for (int i = 0; i < track->getNumEvents(); ++i)
         {
             const auto& msg = track->getEventPointer (i)->message;
             if (! msg.isNoteOn()) continue;
+
+            // General MIDI puts drums on channel 10 (1-based) = channel 10 in JUCE's API.
             if (msg.getChannel() != 10) continue;
 
-            lines.add (juce::String::formatted (
-                "t=%7.3fs  track=%d  note=%3d (%s)  vel=%3d",
-                msg.getTimeStamp(),
-                t,
-                msg.getNoteNumber(),
-                describeDrumNote (msg.getNoteNumber()).toRawUTF8(),
-                msg.getVelocity()));
+            ++drumEventCount;
+            if (lines.size() < 200)
+            {
+                lines.add (juce::String::formatted (
+                    "t=%7.3fs  track=%d  note=%3d (%s)  vel=%3d",
+                    msg.getTimeStamp(),
+                    t,
+                    msg.getNoteNumber(),
+                    describeDrumNote (msg.getNoteNumber()).toRawUTF8(),
+                    msg.getVelocity()));
+            }
         }
     }
 
+    statusLabel.setText (
+        juce::String::formatted ("Loaded: %s  —  %d drum note-on events across %d tracks",
+                                 file.getFileName().toRawUTF8(),
+                                 drumEventCount,
+                                 midi.getNumTracks()),
+        juce::dontSendNotification);
+
     if (lines.isEmpty())
-        eventLog.setText ("No drum (channel 10) note-on events found.");
+        eventLog.setText ("No drum (channel 10) note-on events found.\n"
+                          "(File may use a different channel — we'll handle that in the next phase.)");
     else
         eventLog.setText (lines.joinIntoString ("\n"));
-}
-
-void MainComponent::updateTransportUI()
-{
-    playButton.setButtonText (player.getIsPlaying() ? "Pause" : "Play");
-}
-
-void MainComponent::timerCallback()
-{
-    const double pos = player.getPositionSeconds();
-    const double len = player.getLengthSeconds();
-    positionLabel.setText (juce::String::formatted ("%.2f / %.2f s", pos, len),
-                           juce::dontSendNotification);
-    updateTransportUI();
 }
 
 juce::String MainComponent::describeDrumNote (int n)
