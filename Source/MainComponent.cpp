@@ -79,6 +79,19 @@ MainComponent::MainComponent()
         pitchedSynth.setMasterGain ((float) melodyVolumeSlider.getValue());
     };
 
+    inputVolumeLabel.setText ("Input", juce::dontSendNotification);
+    addAndMakeVisible (inputVolumeLabel);
+
+    addAndMakeVisible (inputVolumeSlider);
+    inputVolumeSlider.setRange (0.0, 1.5, 0.01);
+    inputVolumeSlider.setValue (0.9, juce::dontSendNotification);
+    inputVolumeSlider.setNumDecimalPlacesToDisplay (2);
+    inputVolumeSlider.onValueChange = [this]
+    {
+        drumInput.setMasterGain ((float) inputVolumeSlider.getValue());
+    };
+    drumInput.setMasterGain (0.9f);
+
     lookAheadLabel.setText ("Lookahead", juce::dontSendNotification);
     addAndMakeVisible (lookAheadLabel);
 
@@ -92,8 +105,28 @@ MainComponent::MainComponent()
         notesView.setLookAheadSeconds (lookAheadSlider.getValue());
     };
 
+    midiInputLabel.setText ("MIDI In", juce::dontSendNotification);
+    addAndMakeVisible (midiInputLabel);
+
+    addAndMakeVisible (midiInputCombo);
+    midiInputCombo.onChange = [this]
+    {
+        const int id = midiInputCombo.getSelectedId();
+        if (id <= 1)
+        {
+            setActiveMidiDevice ({});
+        }
+        else
+        {
+            const int index = id - 2;
+            if (index >= 0 && index < midiDevices.size())
+                setActiveMidiDevice (midiDevices.getReference (index).identifier);
+        }
+    };
+    refreshMidiDeviceList();
+
     addAndMakeVisible (statusLabel);
-    statusLabel.setText ("No file loaded.", juce::dontSendNotification);
+    statusLabel.setText ("No file loaded. Keys: A S D F J K L ; Space", juce::dontSendNotification);
 
     addAndMakeVisible (positionLabel);
     positionLabel.setText ("0.00 / 0.00 s", juce::dontSendNotification);
@@ -101,14 +134,36 @@ MainComponent::MainComponent()
 
     addAndMakeVisible (notesView);
 
-    setSize (960, 640);
+    setWantsKeyboardFocus (true);
+
+    setSize (960, 720);
     setAudioChannels (0, 2);
     startTimerHz (30);
 }
 
 MainComponent::~MainComponent()
 {
+    setActiveMidiDevice ({});
+
+    if (keyListenerInstalled)
+        removeKeyListener (this);
+
     shutdownAudio();
+}
+
+void MainComponent::parentHierarchyChanged()
+{
+    if (! keyListenerInstalled)
+    {
+        addKeyListener (this);
+        keyListenerInstalled = true;
+    }
+    grabKeyboardFocus();
+}
+
+void MainComponent::mouseDown (const juce::MouseEvent&)
+{
+    grabKeyboardFocus();
 }
 
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sr)
@@ -116,12 +171,14 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sr)
     drumSynth.prepare (sr);
     pitchedSynth.prepare (sr, samplesPerBlockExpected);
     player.prepare (sr);
+    drumInput.prepare (sr);
 }
 
 void MainComponent::releaseResources()
 {
     drumSynth.reset();
     pitchedSynth.reset();
+    drumInput.reset();
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
@@ -133,6 +190,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
 
     drumSynth.render (*info.buffer, info.startSample, info.numSamples);
     pitchedSynth.processBlock (*info.buffer, pitchedEvents, info.startSample, info.numSamples);
+    drumInput.processBlock (*info.buffer, info.startSample, info.numSamples);
 }
 
 void MainComponent::paint (juce::Graphics& g)
@@ -165,7 +223,7 @@ void MainComponent::resized()
     auto makeSliderRow = [&] (juce::Label& label, juce::Slider& slider)
     {
         auto row = area.removeFromTop (26);
-        label.setBounds (row.removeFromLeft (70));
+        label.setBounds (row.removeFromLeft (80));
         slider.setBounds (row);
         area.removeFromTop (4);
     };
@@ -173,7 +231,15 @@ void MainComponent::resized()
     makeSliderRow (tempoLabel,        tempoSlider);
     makeSliderRow (drumsVolumeLabel,  drumsVolumeSlider);
     makeSliderRow (melodyVolumeLabel, melodyVolumeSlider);
+    makeSliderRow (inputVolumeLabel,  inputVolumeSlider);
     makeSliderRow (lookAheadLabel,    lookAheadSlider);
+
+    {
+        auto row = area.removeFromTop (26);
+        midiInputLabel.setBounds (row.removeFromLeft (80));
+        midiInputCombo.setBounds (row);
+        area.removeFromTop (4);
+    }
 
     area.removeFromTop (6);
     notesView.setBounds (area);
@@ -248,4 +314,88 @@ void MainComponent::seekTo (double timeSec)
     drumSynth.reset();
     pitchedSynth.reset();
     seekSlider.setValue (player.getPositionSeconds(), juce::dontSendNotification);
+}
+
+void MainComponent::refreshMidiDeviceList()
+{
+    midiDevices = juce::MidiInput::getAvailableDevices();
+
+    midiInputCombo.clear (juce::dontSendNotification);
+    midiInputCombo.addItem ("(none)", 1);
+
+    for (int i = 0; i < midiDevices.size(); ++i)
+        midiInputCombo.addItem (midiDevices.getReference (i).name, i + 2);
+
+    if (activeMidiDeviceId.isEmpty())
+    {
+        midiInputCombo.setSelectedId (1, juce::dontSendNotification);
+    }
+    else
+    {
+        int found = 1;
+        for (int i = 0; i < midiDevices.size(); ++i)
+            if (midiDevices.getReference (i).identifier == activeMidiDeviceId)
+                found = i + 2;
+        midiInputCombo.setSelectedId (found, juce::dontSendNotification);
+    }
+}
+
+void MainComponent::setActiveMidiDevice (const juce::String& deviceId)
+{
+    if (activeMidiDeviceId == deviceId) return;
+
+    if (activeMidiDeviceId.isNotEmpty())
+    {
+        deviceManager.removeMidiInputDeviceCallback (activeMidiDeviceId, &drumInput);
+        deviceManager.setMidiInputDeviceEnabled (activeMidiDeviceId, false);
+    }
+
+    activeMidiDeviceId = deviceId;
+
+    if (activeMidiDeviceId.isNotEmpty())
+    {
+        deviceManager.setMidiInputDeviceEnabled (activeMidiDeviceId, true);
+        deviceManager.addMidiInputDeviceCallback (activeMidiDeviceId, &drumInput);
+    }
+}
+
+int MainComponent::keyCodeToDrumNote (int keyCode)
+{
+    if (keyCode == juce::KeyPress::spaceKey) return 36;  // Kick
+    switch (keyCode)
+    {
+        case 'A': return 42;  // Closed hi-hat
+        case 'S': return 38;  // Snare
+        case 'D': return 48;  // Hi tom
+        case 'F': return 45;  // Mid/low tom
+        case 'J': return 43;  // Floor tom
+        case 'K': return 51;  // Ride
+        case 'L': return 49;  // Crash
+        case ';': return 46;  // Open hi-hat
+        default: return -1;
+    }
+}
+
+bool MainComponent::keyPressed (const juce::KeyPress& key, juce::Component*)
+{
+    const int code = key.getKeyCode();
+    const int note = keyCodeToDrumNote (code);
+    if (note < 0) return false;
+
+    if (keysDown.insert (code).second)
+        drumInput.postNoteOn (note, 0.9f);
+
+    return true;
+}
+
+bool MainComponent::keyStateChanged (bool, juce::Component*)
+{
+    for (auto it = keysDown.begin(); it != keysDown.end(); )
+    {
+        if (! juce::KeyPress::isKeyCurrentlyDown (*it))
+            it = keysDown.erase (it);
+        else
+            ++it;
+    }
+    return false;
 }
