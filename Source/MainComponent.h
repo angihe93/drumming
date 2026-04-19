@@ -26,10 +26,16 @@ private:
     void loadMidiFile (const juce::File& file);
     void updateTransportUI();
     void timerCallback() override;
+    void seekTo (double timeSec);
+
+    bool userDraggingSeek { false };
 
     juce::TextButton loadButton       { "Load MIDI file..." };
     juce::TextButton playButton       { "Play" };
     juce::TextButton stopButton       { "Stop" };
+    juce::TextButton seekBackButton   { "-10s" };
+    juce::TextButton seekForwardButton{ "+10s" };
+    juce::Slider     seekSlider;
     juce::Slider     tempoSlider;
     juce::Label      tempoLabel;
     juce::Slider     drumsVolumeSlider;

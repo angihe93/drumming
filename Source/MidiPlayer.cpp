@@ -124,6 +124,21 @@ void MidiPlayer::setTempoMultiplier (double m)
     tempoMultiplier.store (juce::jlimit (0.1, 4.0, m));
 }
 
+void MidiPlayer::seek (double timeSec)
+{
+    const juce::SpinLock::ScopedLockType sl (loadLock);
+    const double len = lengthSeconds.load();
+    timeSec = juce::jlimit (0.0, len, timeSec);
+
+    playheadSeconds = timeSec;
+
+    const auto it = std::lower_bound (events.begin(), events.end(), timeSec,
+        [] (const Event& e, double t) { return e.timeSec < t; });
+    nextEventIndex = (std::size_t) std::distance (events.begin(), it);
+
+    displayPosition.store (timeSec);
+}
+
 void MidiPlayer::processBlock (int numSamples, DrumSynth& drums, juce::MidiBuffer& pitchedOut)
 {
     if (! playing.load()) return;

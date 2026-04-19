@@ -29,6 +29,10 @@ public:
 
     void setTempoMultiplier (double m);
 
+    // Jumps the playhead to `timeSec` (clamped to [0, length]). Does not change
+    // play state. Callers should also reset the synths to silence any held notes.
+    void seek (double timeSec);
+
     // Audio thread. Drum note-ons fire directly on `drums`; everything else for
     // channels 1-9, 11-16 is added to `pitchedOut` at its sample-accurate offset.
     void processBlock (int numSamples, DrumSynth& drums, juce::MidiBuffer& pitchedOut);

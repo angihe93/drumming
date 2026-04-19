@@ -29,6 +29,22 @@ MainComponent::MainComponent()
         updateTransportUI();
     };
 
+    addAndMakeVisible (seekBackButton);
+    seekBackButton.onClick = [this] { seekTo (player.getPositionSeconds() - 10.0); };
+
+    addAndMakeVisible (seekForwardButton);
+    seekForwardButton.onClick = [this] { seekTo (player.getPositionSeconds() + 10.0); };
+
+    addAndMakeVisible (seekSlider);
+    seekSlider.setRange (0.0, 1.0, 0.0);
+    seekSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    seekSlider.onDragStart = [this] { userDraggingSeek = true; };
+    seekSlider.onDragEnd   = [this]
+    {
+        userDraggingSeek = false;
+        seekTo (seekSlider.getValue());
+    };
+
     tempoLabel.setText ("Tempo", juce::dontSendNotification);
     addAndMakeVisible (tempoLabel);
 
@@ -134,11 +150,17 @@ void MainComponent::resized()
     playButton.setBounds (topRow.removeFromLeft (80));
     topRow.removeFromLeft (4);
     stopButton.setBounds (topRow.removeFromLeft (80));
+    topRow.removeFromLeft (8);
+    seekBackButton.setBounds (topRow.removeFromLeft (60));
+    topRow.removeFromLeft (4);
+    seekForwardButton.setBounds (topRow.removeFromLeft (60));
     topRow.removeFromLeft (12);
     positionLabel.setBounds (topRow.removeFromRight (160));
     statusLabel.setBounds (topRow);
 
-    area.removeFromTop (8);
+    area.removeFromTop (6);
+    seekSlider.setBounds (area.removeFromTop (22));
+    area.removeFromTop (6);
 
     auto makeSliderRow = [&] (juce::Label& label, juce::Slider& slider)
     {
@@ -192,6 +214,8 @@ void MainComponent::loadMidiFile (const juce::File& file)
     drumSynth.reset();
     pitchedSynth.reset();
     player.loadMidi (midi);
+    seekSlider.setRange (0.0, juce::jmax (0.001, player.getLengthSeconds()), 0.0);
+    seekSlider.setValue (0.0, juce::dontSendNotification);
     updateTransportUI();
 
     statusLabel.setText (
@@ -213,5 +237,15 @@ void MainComponent::timerCallback()
     const double len = player.getLengthSeconds();
     positionLabel.setText (juce::String::formatted ("%.2f / %.2f s", pos, len),
                            juce::dontSendNotification);
+    if (! userDraggingSeek)
+        seekSlider.setValue (pos, juce::dontSendNotification);
     updateTransportUI();
+}
+
+void MainComponent::seekTo (double timeSec)
+{
+    player.seek (timeSec);
+    drumSynth.reset();
+    pitchedSynth.reset();
+    seekSlider.setValue (player.getPositionSeconds(), juce::dontSendNotification);
 }
