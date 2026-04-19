@@ -27,6 +27,12 @@ target_sources(DrumCoach PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
     Source/MainComponent.h
+    Source/DrumSynth.cpp
+    Source/DrumSynth.h
+    Source/MidiPlayer.cpp
+    Source/MidiPlayer.h
+    Source/PitchedSynth.cpp
+    Source/PitchedSynth.h
 )
 
 target_compile_definitions(DrumCoach PRIVATE
