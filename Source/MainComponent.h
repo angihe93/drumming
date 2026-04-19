@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 
+#include <unordered_map>
 #include <unordered_set>
 
 #include "DrumInput.h"
@@ -36,7 +37,13 @@ private:
 
     void refreshMidiDeviceList();
     void setActiveMidiDevice (const juce::String& deviceId);
-    static int keyCodeToDrumNote (int keyCode);
+    int  keyCodeToDrumNote (int keyCode) const;
+
+    void rebuildKeyBindings();
+    void updateKeyBindingLabels();
+    void onKeyBindingEdited (int bindingIndex, const juce::String& text);
+    static juce::String keyCodeToDisplayString (int keyCode);
+    static int          displayStringToKeyCode (const juce::String& s);
 
     using juce::Component::keyPressed;
     using juce::Component::keyStateChanged;
@@ -79,6 +86,13 @@ private:
     juce::Array<juce::MidiDeviceInfo> midiDevices;
     juce::String                      activeMidiDeviceId;
     std::unordered_set<int>           keysDown;
+
+    static constexpr int numDrumBindings = 9;
+    std::unordered_map<int, int>      keyCodeToNote;    // keyCode -> GM drum note
+    int                               bindingNotes[numDrumBindings] {};
+    juce::Label                       bindingNameLabels[numDrumBindings];
+    juce::Label                       bindingValueLabels[numDrumBindings];
+    juce::Label                       keyBindingsHeader;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

@@ -109,6 +109,29 @@ MainComponent::MainComponent()
                             juce::dontSendNotification);
     addAndMakeVisible (midiInputLabel);
 
+    rebuildKeyBindings();
+
+    keyBindingsHeader.setText ("Key bindings (click a value to edit — letter, digit, punctuation, or \"Space\"):",
+                               juce::dontSendNotification);
+    addAndMakeVisible (keyBindingsHeader);
+
+    for (int i = 0; i < numDrumBindings; ++i)
+    {
+        addAndMakeVisible (bindingNameLabels[i]);
+        bindingNameLabels[i].setJustificationType (juce::Justification::centredRight);
+
+        auto& v = bindingValueLabels[i];
+        addAndMakeVisible (v);
+        v.setJustificationType (juce::Justification::centred);
+        v.setColour (juce::Label::backgroundColourId,
+                     juce::Colours::white.withAlpha (0.08f));
+        v.setColour (juce::Label::outlineColourId,
+                     juce::Colours::white.withAlpha (0.25f));
+        v.setEditable (true, true, false);
+        v.onTextChange = [this, i] { onKeyBindingEdited (i, bindingValueLabels[i].getText()); };
+    }
+    updateKeyBindingLabels();
+
     const juce::String keyboardHelp =
         "No drum pad? Click the notes area below to focus, then play with the keyboard:\n"
         "  Space = Kick\n"
@@ -253,6 +276,20 @@ void MainComponent::resized()
         area.removeFromTop (4);
     }
 
+    area.removeFromTop (4);
+    keyBindingsHeader.setBounds (area.removeFromTop (20));
+    {
+        auto row = area.removeFromTop (24);
+        const int cellWidth = row.getWidth() / numDrumBindings;
+        for (int i = 0; i < numDrumBindings; ++i)
+        {
+            auto cell = row.removeFromLeft (cellWidth);
+            bindingNameLabels [i].setBounds (cell.removeFromLeft (cellWidth * 2 / 3));
+            bindingValueLabels[i].setBounds (cell);
+        }
+        area.removeFromTop (6);
+    }
+
     area.removeFromTop (6);
     notesView.setBounds (area);
 }
@@ -371,21 +408,98 @@ void MainComponent::setActiveMidiDevice (const juce::String& deviceId)
     }
 }
 
-int MainComponent::keyCodeToDrumNote (int keyCode)
+int MainComponent::keyCodeToDrumNote (int keyCode) const
 {
-    if (keyCode == juce::KeyPress::spaceKey) return 36;  // Kick
-    switch (keyCode)
+    const auto it = keyCodeToNote.find (keyCode);
+    return it != keyCodeToNote.end() ? it->second : -1;
+}
+
+juce::String MainComponent::keyCodeToDisplayString (int keyCode)
+{
+    if (keyCode == juce::KeyPress::spaceKey) return "Space";
+    if (keyCode >= 32 && keyCode < 127)      return juce::String::charToString ((juce_wchar) keyCode);
+    return {};
+}
+
+int MainComponent::displayStringToKeyCode (const juce::String& s)
+{
+    const auto trimmed = s.trim();
+    if (trimmed.equalsIgnoreCase ("space")) return juce::KeyPress::spaceKey;
+    if (trimmed.length() == 1)
     {
-        case 'A': return 42;  // Closed hi-hat
-        case 'S': return 38;  // Snare
-        case 'D': return 48;  // Hi tom
-        case 'F': return 45;  // Mid/low tom
-        case 'J': return 43;  // Floor tom
-        case 'K': return 51;  // Ride
-        case 'L': return 49;  // Crash
-        case ';': return 46;  // Open hi-hat
-        default: return -1;
+        const auto c = trimmed[0];
+        if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
+        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
+        if (c == ';' || c == '\'' || c == ',' || c == '.' || c == '/'
+            || c == '[' || c == ']' || c == '\\' || c == '-' || c == '=')
+            return c;
     }
+    return 0;
+}
+
+void MainComponent::rebuildKeyBindings()
+{
+    keyCodeToNote.clear();
+
+    // Default bindings: {keyCode, GM drum note}
+    const std::pair<int, int> defaults[numDrumBindings] = {
+        { juce::KeyPress::spaceKey, 36 }, // Kick
+        { 'S',                      38 }, // Snare
+        { 'A',                      42 }, // Closed hi-hat
+        { ';',                      46 }, // Open hi-hat
+        { 'D',                      48 }, // Hi tom
+        { 'F',                      45 }, // Mid tom
+        { 'J',                      43 }, // Floor tom
+        { 'K',                      51 }, // Ride
+        { 'L',                      49 }, // Crash
+    };
+    const char* const names[numDrumBindings] = {
+        "Kick", "Snare", "HH Closed", "HH Open",
+        "Hi Tom", "Mid Tom", "Floor Tom", "Ride", "Crash"
+    };
+
+    for (int i = 0; i < numDrumBindings; ++i)
+    {
+        bindingNotes[i] = defaults[i].second;
+        keyCodeToNote[defaults[i].first] = defaults[i].second;
+        bindingNameLabels[i].setText (names[i], juce::dontSendNotification);
+    }
+}
+
+void MainComponent::updateKeyBindingLabels()
+{
+    for (int i = 0; i < numDrumBindings; ++i)
+    {
+        juce::String shown;
+        for (const auto& kv : keyCodeToNote)
+            if (kv.second == bindingNotes[i])
+                shown = keyCodeToDisplayString (kv.first);
+        bindingValueLabels[i].setText (shown, juce::dontSendNotification);
+    }
+}
+
+void MainComponent::onKeyBindingEdited (int bindingIndex, const juce::String& text)
+{
+    const int newKey = displayStringToKeyCode (text);
+    if (newKey == 0)
+    {
+        updateKeyBindingLabels();
+        return;
+    }
+
+    const int note = bindingNotes[bindingIndex];
+
+    // Remove any existing entry that maps to this note (old key for this drum).
+    for (auto it = keyCodeToNote.begin(); it != keyCodeToNote.end(); )
+    {
+        if (it->second == note) it = keyCodeToNote.erase (it);
+        else                    ++it;
+    }
+    // If the chosen key is already bound to a different drum, override it —
+    // a keycode can only map to one note at a time.
+    keyCodeToNote[newKey] = note;
+
+    updateKeyBindingLabels();
 }
 
 bool MainComponent::keyPressed (const juce::KeyPress& key, juce::Component*)
