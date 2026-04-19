@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(DrumCoach VERSION 0.1.0 LANGUAGES C CXX)
+project(Drummr VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,15 +15,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-juce_add_gui_app(DrumCoach
-    PRODUCT_NAME  "DrumCoach"
-    BUNDLE_ID     "com.angihe.drumcoach"
+juce_add_gui_app(Drummr
+    PRODUCT_NAME  "Drummr"
+    BUNDLE_ID     "com.angihe.drummr"
     COMPANY_NAME  "angihe"
 )
 
-juce_generate_juce_header(DrumCoach)
+juce_generate_juce_header(Drummr)
 
-target_sources(DrumCoach PRIVATE
+target_sources(Drummr PRIVATE
     Source/Main.cpp
     Source/MainComponent.cpp
     Source/MainComponent.h
@@ -39,14 +39,14 @@ target_sources(DrumCoach PRIVATE
     Source/DrumNotesView.h
 )
 
-target_compile_definitions(DrumCoach PRIVATE
+target_compile_definitions(Drummr PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:DrumCoach,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:DrumCoach,JUCE_VERSION>"
+    JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Drummr,JUCE_PRODUCT_NAME>"
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Drummr,JUCE_VERSION>"
 )
 
-target_link_libraries(DrumCoach PRIVATE
+target_link_libraries(Drummr PRIVATE
     juce::juce_gui_extra
     juce::juce_audio_utils
     juce::juce_audio_devices

@@ -1,12 +1,12 @@
 #include <JuceHeader.h>
 #include "MainComponent.h"
 
-class DrumCoachApplication : public juce::JUCEApplication
+class DrummrApplication : public juce::JUCEApplication
 {
 public:
-    DrumCoachApplication() = default;
+    DrummrApplication() = default;
 
-    const juce::String getApplicationName() override    { return "DrumCoach"; }
+    const juce::String getApplicationName() override    { return "Drummr"; }
     const juce::String getApplicationVersion() override { return "0.1.0"; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
@@ -47,4 +47,4 @@ private:
     std::unique_ptr<MainWindow> mainWindow;
 };
 
-START_JUCE_APPLICATION (DrumCoachApplication)
+START_JUCE_APPLICATION (DrummrApplication)
