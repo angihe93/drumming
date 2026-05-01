@@ -447,8 +447,8 @@ void MainComponent::rebuildKeyBindings()
         { 'S',                      38 }, // Snare
         { 'A',                      42 }, // Closed hi-hat
         { ';',                      46 }, // Open hi-hat
-        { 'D',                      48 }, // Hi tom
-        { 'F',                      45 }, // Mid tom
+        { 'D',                      50 }, // Hi tom
+        { 'F',                      48 }, // Mid tom
         { 'J',                      43 }, // Floor tom
         { 'K',                      51 }, // Ride
         { 'L',                      49 }, // Crash
